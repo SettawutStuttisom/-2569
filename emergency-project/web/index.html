@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>แจ้งเหตุฉุกเฉิน</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<style>
+body { font-family: Arial; padding: 20px; }
+#map { height: 300px; margin-top: 10px; }
+input, select, button, textarea {
+  margin: 5px 0;
+  padding: 10px;
+  width: 100%;
+}
+</style>
+</head>
+
+<body>
+
+<h2>🚨 แจ้งเหตุฉุกเฉิน</h2>
+
+<select id="type">
+<option value="อุบัติเหตุ">อุบัติเหตุ</option>
+<option value="ไฟไหม้">ไฟไหม้</option>
+<option value="คนหมดสติ">คนหมดสติ</option>
+<option value="อื่นๆ">อื่นๆ</option>
+</select>
+
+<select id="gender">
+<option value="ชาย">ชาย</option>
+<option value="หญิง">หญิง</option>
+<option value="ไม่ระบุ">ไม่ระบุ</option>
+</select>
+
+<input type="number" id="age" placeholder="อายุ">
+
+<textarea id="detail" placeholder="รายละเอียดเหตุการณ์" rows="4"></textarea>
+
+<input type="file" id="image" accept="image/*">
+
+<button onclick="getLocation()">📍 เรียกพิกัด</button>
+
+<div id="map"></div>
+
+<button onclick="sendReport()">🚨 แจ้งเหตุ</button>
+
+<script>
+
+let lat = null;
+let lng = null;
+let map;
+let marker;
+
+/* 📍 ดึงพิกัด */
+function getLocation(){
+
+if(!navigator.geolocation){
+alert("เบราว์เซอร์ไม่รองรับ geolocation");
+return;
+}
+
+navigator.geolocation.getCurrentPosition((pos)=>{
+
+lat = pos.coords.latitude;
+lng = pos.coords.longitude;
+
+if(!map){
+
+map = L.map('map').setView([lat,lng],16);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
+.addTo(map);
+
+}else{
+
+map.setView([lat,lng],16);
+
+}
+
+if(marker) map.removeLayer(marker);
+
+marker = L.marker([lat,lng])
+.addTo(map)
+.bindPopup("ตำแหน่งของคุณ")
+.openPopup();
+
+},(err)=>{
+
+console.error(err);
+alert("ไม่สามารถดึงพิกัดได้ ❌");
+
+},{
+enableHighAccuracy:true
+});
+
+}
+
+/* 📸 แปลงรูป */
+function getImageBase64(file){
+
+return new Promise((resolve)=>{
+
+const reader = new FileReader();
+
+reader.onload = ()=>resolve(reader.result);
+
+reader.readAsDataURL(file);
+
+});
+
+}
+
+/* 🚨 ส่งข้อมูล */
+async function sendReport(){
+
+if(!lat || !lng){
+alert("กรุณากดเรียกพิกัดก่อน");
+return;
+}
+
+const file = document.getElementById("image").files[0];
+let imageData = null;
+
+if(file){
+imageData = await getImageBase64(file);
+}
+
+const data = {
+
+type: document.getElementById("type").value,
+gender: document.getElementById("gender").value,
+age: document.getElementById("age").value,
+detail: document.getElementById("detail").value,
+image: imageData,
+lat,
+lng,
+status:"pending",
+timestamp:new Date().toISOString()
+
+};
+
+try{
+
+const res = await fetch("/api/report",{
+
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify(data)
+
+});
+
+const result = await res.json();
+
+if(result.success){
+
+alert("แจ้งเหตุเรียบร้อยแล้ว ✅");
+
+}else{
+
+alert("ส่งข้อมูลไม่สำเร็จ ❌");
+
+}
+
+}catch(err){
+
+console.error(err);
+alert("ไม่สามารถเชื่อมต่อ server ❌");
+
+}
+
+}
+
+</script>
+
+</body>
+</html>
