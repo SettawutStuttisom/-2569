@@ -12,8 +12,8 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 
-/* ================= PATH FIX ================= */
-const ROOT = path.join(__dirname, "..");
+/* ================= ROOT FIX ================= */
+const ROOT = __dirname; // 🔥 สำคัญ (Render ใช้ path นี้ดีที่สุด)
 
 const DATA_DIR = path.join(ROOT, "data");
 const WEB_DIR = path.join(ROOT, "web");
@@ -22,8 +22,13 @@ const DATA_FILE = path.join(DATA_DIR, "reports.json");
 const ACCOUNT_FILE = path.join(DATA_DIR, "account.json");
 const HISTORY_FILE = path.join(DATA_DIR, "history.txt");
 
-/* ================= STATIC (สำคัญสุด) ================= */
+/* ================= STATIC ================= */
 app.use(express.static(WEB_DIR));
+
+/* fallback (กัน reload แล้ว 404) */
+app.get("/", (req, res) => {
+  res.sendFile(path.join(WEB_DIR, "index.html"));
+});
 
 /* ================= INIT FILES ================= */
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
@@ -119,7 +124,6 @@ time: ${new Date().toISOString()}
 `;
 
       fs.appendFileSync(HISTORY_FILE, log);
-
       data = data.filter((r) => r.id !== id);
     }
 

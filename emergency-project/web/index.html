@@ -69,7 +69,8 @@ function getLocation(){
 
     if(marker) map.removeLayer(marker);
 
-    marker = L.marker([lat,lng]).addTo(map)
+    marker = L.marker([lat,lng])
+      .addTo(map)
       .bindPopup("ตำแหน่งของคุณ")
       .openPopup();
 
@@ -124,8 +125,8 @@ async function sendReport(){
 
       localStorage.setItem("reportId", result.id);
 
-      /* ✅ FIX สำคัญ */
-      window.location.href = "/pending.html";
+      /* ✅ FIX สำคัญ (ใช้ full origin) */
+      window.location.href = `${window.location.origin}/pending.html`;
 
     } else {
       alert("ส่งข้อมูลไม่สำเร็จ");
