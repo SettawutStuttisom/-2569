@@ -12,21 +12,22 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 
-/* ================= FIX PATH (สำคัญ) ================= */
-const DATA_DIR = path.join(__dirname, "data");
+/* ================= PATH FIX ================= */
+const ROOT = path.join(__dirname, "..");
+
+const DATA_DIR = path.join(ROOT, "data");
+const WEB_DIR = path.join(ROOT, "web");
+
 const DATA_FILE = path.join(DATA_DIR, "reports.json");
 const ACCOUNT_FILE = path.join(DATA_DIR, "account.json");
 const HISTORY_FILE = path.join(DATA_DIR, "history.txt");
 
-/* STATIC FILES (FIX สำคัญที่สุด) */
-app.use(express.static(path.join(__dirname, "web")));
+/* ================= STATIC (สำคัญสุด) ================= */
+app.use(express.static(WEB_DIR));
 
-/* Ensure folder */
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR);
-}
+/* ================= INIT FILES ================= */
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
 
-/* Ensure files */
 if (!fs.existsSync(DATA_FILE)) {
   fs.writeFileSync(DATA_FILE, JSON.stringify([], null, 2));
 }
@@ -42,7 +43,7 @@ if (!fs.existsSync(HISTORY_FILE)) {
   fs.writeFileSync(HISTORY_FILE, "");
 }
 
-/* ================= POST REPORT ================= */
+/* ================= API ================= */
 app.post("/api/report", (req, res) => {
   try {
     const data = JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
@@ -66,7 +67,6 @@ app.post("/api/report", (req, res) => {
   }
 });
 
-/* ================= GET ALL ================= */
 app.get("/api/reports", (req, res) => {
   try {
     const data = JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
@@ -76,7 +76,6 @@ app.get("/api/reports", (req, res) => {
   }
 });
 
-/* ================= ACCEPT ================= */
 app.post("/api/report/:id/accept", (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -94,13 +93,11 @@ app.post("/api/report/:id/accept", (req, res) => {
     fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
 
     res.json({ success: true });
-  } catch (err) {
-    console.error(err);
+  } catch {
     res.status(500).json({ success: false });
   }
 });
 
-/* ================= REJECT ================= */
 app.post("/api/report/:id/reject", (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -129,8 +126,7 @@ time: ${new Date().toISOString()}
     fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
 
     res.json({ success: true });
-  } catch (err) {
-    console.error(err);
+  } catch {
     res.status(500).json({ success: false });
   }
 });
