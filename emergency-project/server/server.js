@@ -5,7 +5,7 @@ const path = require("path");
 
 const app = express();
 
-/* ✅ ใช้ PORT จาก cloud */
+/* PORT */
 const PORT = process.env.PORT || 3000;
 
 /* Middleware */
@@ -16,42 +16,50 @@ app.use(express.json({ limit: "10mb" }));
 const appRoot = path.join(__dirname, "..");
 const DATA_DIR = path.join(appRoot, "data");
 const DATA_FILE = path.join(DATA_DIR, "reports.json");
+const ACCOUNT_FILE = path.join(DATA_DIR, "account.json");
+const HISTORY_FILE = path.join(DATA_DIR, "history.txt");
 
-/* Ensure data */
+/* Ensure folder */
 if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR);
 }
 
+/* Ensure files */
 if (!fs.existsSync(DATA_FILE)) {
     fs.writeFileSync(DATA_FILE, JSON.stringify([], null, 2));
+}
+
+if (!fs.existsSync(ACCOUNT_FILE)) {
+    fs.writeFileSync(ACCOUNT_FILE, JSON.stringify([
+        { username: "admin", password: "1234", phone: "0801234567" }
+    ], null, 2));
+}
+
+if (!fs.existsSync(HISTORY_FILE)) {
+    fs.writeFileSync(HISTORY_FILE, "");
 }
 
 /* STATIC */
 app.use(express.static(path.join(appRoot, "web")));
 
-app.get("/", (req, res) => {
-    res.sendFile(path.join(appRoot, "web", "index.html"));
-});
-
-/* API */
-
-/* POST */
+/* ================= POST REPORT ================= */
 app.post("/api/report", (req, res) => {
     try {
-        const newReport = req.body;
+        const data = JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
 
-        const raw = fs.readFileSync(DATA_FILE, "utf-8");
-        const data = JSON.parse(raw);
-
-        data.push({
+        const report = {
             id: Date.now(),
-            ...newReport,
+            ...req.body,
+            status: "pending",
+            officer: null,
             createdAt: new Date().toISOString()
-        });
+        };
+
+        data.push(report);
 
         fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
 
-        res.json({ success: true });
+        res.json({ success: true, id: report.id });
 
     } catch (err) {
         console.error(err);
@@ -59,29 +67,59 @@ app.post("/api/report", (req, res) => {
     }
 });
 
-/* GET */
+/* ================= GET ALL ================= */
 app.get("/api/reports", (req, res) => {
     try {
-        const raw = fs.readFileSync(DATA_FILE, "utf-8");
-        const data = JSON.parse(raw);
-
+        const data = JSON.parse(fs.readFileSync(DATA_FILE));
         res.json(data);
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json([]);
+    } catch {
+        res.json([]);
     }
 });
 
-/* DELETE */
-app.delete("/api/reports/:id", (req, res) => {
+/* ================= GET BY ID ================= */
+app.get("/api/report/:id", (req, res) => {
     try {
         const id = Number(req.params.id);
 
-        const raw = fs.readFileSync(DATA_FILE, "utf-8");
-        let data = JSON.parse(raw);
+        const reports = JSON.parse(fs.readFileSync(DATA_FILE));
+        const accounts = JSON.parse(fs.readFileSync(ACCOUNT_FILE));
 
-        data = data.filter(item => item.id !== id);
+        const report = reports.find(r => r.id === id);
+
+        if (!report) {
+            return res.json({ success: false });
+        }
+
+        const officer = accounts.find(a => a.username === report.officer);
+
+        res.json({
+            success: true,
+            status: report.status,
+            officer: report.officer,
+            phone: officer?.phone || "-"
+        });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false });
+    }
+});
+
+/* ================= ACCEPT ================= */
+app.post("/api/report/:id/accept", (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        const { username } = req.body;
+
+        const data = JSON.parse(fs.readFileSync(DATA_FILE));
+
+        const report = data.find(r => r.id === id);
+
+        if (report) {
+            report.status = "accepted";
+            report.officer = username;
+        }
 
         fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
 
@@ -93,7 +131,43 @@ app.delete("/api/reports/:id", (req, res) => {
     }
 });
 
-/* START */
+/* ================= REJECT + HISTORY ================= */
+app.post("/api/report/:id/reject", (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        const { username } = req.body;
+
+        let data = JSON.parse(fs.readFileSync(DATA_FILE));
+
+        const report = data.find(r => r.id === id);
+
+        if (report) {
+            const log = `
+REJECTED REPORT
+id: ${report.id}
+type: ${report.type}
+detail: ${report.detail}
+by: ${username}
+time: ${new Date().toISOString()}
+-------------------------
+`;
+
+            fs.appendFileSync(HISTORY_FILE, log);
+
+            data = data.filter(r => r.id !== id);
+        }
+
+        fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+
+        res.json({ success: true });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false });
+    }
+});
+
+/* ================= START ================= */
 app.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 Server running on port ${PORT}`);
 });

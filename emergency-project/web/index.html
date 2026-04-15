@@ -129,41 +129,37 @@ imageData = await getImageBase64(file);
 }
 
 const data = {
-
 type: document.getElementById("type").value,
 gender: document.getElementById("gender").value,
 age: document.getElementById("age").value,
 detail: document.getElementById("detail").value,
 image: imageData,
 lat,
-lng,
-status:"pending",
-timestamp:new Date().toISOString()
-
+lng
 };
 
 try{
 
 const res = await fetch("/api/report",{
-
 method:"POST",
 headers:{
 "Content-Type":"application/json"
 },
 body:JSON.stringify(data)
-
 });
 
 const result = await res.json();
 
 if(result.success){
 
-alert("แจ้งเหตุเรียบร้อยแล้ว ✅");
+/* ✅ เก็บ id */
+localStorage.setItem("reportId", result.id);
+
+/* ✅ ไปหน้า pending */
+window.location.href = "pending.html";
 
 }else{
-
 alert("ส่งข้อมูลไม่สำเร็จ ❌");
-
 }
 
 }catch(err){

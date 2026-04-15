@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>สถานะการแจ้งเหตุ</title>
+
+<style>
+body {
+  font-family: Arial;
+  text-align: center;
+  padding: 40px;
+}
+.status {
+  font-size: 22px;
+  margin-top: 20px;
+}
+.phone {
+  margin-top: 20px;
+  font-size: 20px;
+  color: green;
+}
+</style>
+</head>
+
+<body>
+
+<h2>📡 สถานะการแจ้งเหตุ</h2>
+
+<div id="status" class="status">กำลังโหลด...</div>
+<div id="phone" class="phone"></div>
+
+<script>
+
+const reportId = localStorage.getItem("reportId");
+
+if(!reportId){
+alert("ไม่พบข้อมูล ❌");
+window.location.href = "index.html";
+}
+
+setInterval(checkStatus,3000);
+
+async function checkStatus(){
+
+try{
+
+const res = await fetch(`/api/report/${reportId}`);
+const data = await res.json();
+
+if(data.status === "pending"){
+document.getElementById("status").innerText =
+"📩 แจ้งเหตุแล้ว รอเจ้าหน้าที่ตอบรับ...";
+
+}else if(data.status === "accepted"){
+document.getElementById("status").innerText =
+"🚑 เจ้าหน้าที่รับเรื่องแล้ว กำลังไป";
+
+document.getElementById("phone").innerText =
+"📞 ติดต่อ: " + data.phone;
+
+}else if(data.status === "rejected"){
+document.getElementById("status").innerText =
+"❌ การแจ้งเหตุถูกปฏิเสธ";
+
+setTimeout(()=>{
+window.location.href = "index.html";
+},3000);
+}
+
+}catch(err){
+console.error(err);
+}
+
+}
+
+</script>
+
+</body>
+</html>
