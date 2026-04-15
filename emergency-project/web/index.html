@@ -23,152 +23,118 @@ input, select, button, textarea {
 <h2>🚨 แจ้งเหตุฉุกเฉิน</h2>
 
 <select id="type">
-<option value="อุบัติเหตุ">อุบัติเหตุ</option>
-<option value="ไฟไหม้">ไฟไหม้</option>
-<option value="คนหมดสติ">คนหมดสติ</option>
-<option value="อื่นๆ">อื่นๆ</option>
+  <option value="อุบัติเหตุ">อุบัติเหตุ</option>
+  <option value="ไฟไหม้">ไฟไหม้</option>
+  <option value="คนหมดสติ">คนหมดสติ</option>
+  <option value="อื่นๆ">อื่นๆ</option>
 </select>
 
 <select id="gender">
-<option value="ชาย">ชาย</option>
-<option value="หญิง">หญิง</option>
-<option value="ไม่ระบุ">ไม่ระบุ</option>
+  <option value="ชาย">ชาย</option>
+  <option value="หญิง">หญิง</option>
+  <option value="ไม่ระบุ">ไม่ระบุ</option>
 </select>
 
 <input type="number" id="age" placeholder="อายุ">
-
 <textarea id="detail" placeholder="รายละเอียดเหตุการณ์" rows="4"></textarea>
-
 <input type="file" id="image" accept="image/*">
 
 <button onclick="getLocation()">📍 เรียกพิกัด</button>
-
 <div id="map"></div>
 
 <button onclick="sendReport()">🚨 แจ้งเหตุ</button>
 
 <script>
 
+const SERVER_URL = "https://2569.onrender.com";
+
 let lat = null;
 let lng = null;
 let map;
 let marker;
 
-/* 📍 ดึงพิกัด */
+/* 📍 พิกัด */
 function getLocation(){
+  navigator.geolocation.getCurrentPosition((pos)=>{
 
-if(!navigator.geolocation){
-alert("เบราว์เซอร์ไม่รองรับ geolocation");
-return;
+    lat = pos.coords.latitude;
+    lng = pos.coords.longitude;
+
+    if(!map){
+      map = L.map('map').setView([lat,lng],16);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    } else {
+      map.setView([lat,lng],16);
+    }
+
+    if(marker) map.removeLayer(marker);
+
+    marker = L.marker([lat,lng]).addTo(map)
+      .bindPopup("ตำแหน่งของคุณ")
+      .openPopup();
+
+  });
 }
 
-navigator.geolocation.getCurrentPosition((pos)=>{
-
-lat = pos.coords.latitude;
-lng = pos.coords.longitude;
-
-if(!map){
-
-map = L.map('map').setView([lat,lng],16);
-
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
-.addTo(map);
-
-}else{
-
-map.setView([lat,lng],16);
-
-}
-
-if(marker) map.removeLayer(marker);
-
-marker = L.marker([lat,lng])
-.addTo(map)
-.bindPopup("ตำแหน่งของคุณ")
-.openPopup();
-
-},(err)=>{
-
-console.error(err);
-alert("ไม่สามารถดึงพิกัดได้ ❌");
-
-},{
-enableHighAccuracy:true
-});
-
-}
-
-/* 📸 แปลงรูป */
+/* base64 */
 function getImageBase64(file){
-
-return new Promise((resolve)=>{
-
-const reader = new FileReader();
-
-reader.onload = ()=>resolve(reader.result);
-
-reader.readAsDataURL(file);
-
-});
-
+  return new Promise((resolve)=>{
+    const reader = new FileReader();
+    reader.onload = ()=>resolve(reader.result);
+    reader.readAsDataURL(file);
+  });
 }
 
 /* 🚨 ส่งข้อมูล */
 async function sendReport(){
 
-if(!lat || !lng){
-alert("กรุณากดเรียกพิกัดก่อน");
-return;
-}
+  if(!lat || !lng){
+    alert("กรุณากดเรียกพิกัดก่อน");
+    return;
+  }
 
-const file = document.getElementById("image").files[0];
-let imageData = null;
+  const file = document.getElementById("image").files[0];
+  let imageData = null;
 
-if(file){
-imageData = await getImageBase64(file);
-}
+  if(file){
+    imageData = await getImageBase64(file);
+  }
 
-const data = {
-type: document.getElementById("type").value,
-gender: document.getElementById("gender").value,
-age: document.getElementById("age").value,
-detail: document.getElementById("detail").value,
-image: imageData,
-lat,
-lng
-};
+  const data = {
+    type: document.getElementById("type").value,
+    gender: document.getElementById("gender").value,
+    age: document.getElementById("age").value,
+    detail: document.getElementById("detail").value,
+    image: imageData,
+    lat,
+    lng
+  };
 
-try{
+  try {
 
-const res = await fetch("/api/report",{
-method:"POST",
-headers:{
-"Content-Type":"application/json"
-},
-body:JSON.stringify(data)
-});
+    const res = await fetch(`${SERVER_URL}/api/report`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
+    });
 
-const result = await res.json();
+    const result = await res.json();
 
-if(result.success){
+    if(result.success){
 
-/* ✅ เก็บ id */
-localStorage.setItem("reportId", result.id);
+      localStorage.setItem("reportId", result.id);
 
-/* ✅ ไปหน้า pending */
-window.location.href = "pending.html";
+      /* ✅ FIX สำคัญ */
+      window.location.href = "/pending.html";
 
-}else{
-alert("ส่งข้อมูลไม่สำเร็จ ❌");
-}
+    } else {
+      alert("ส่งข้อมูลไม่สำเร็จ");
+    }
 
-}catch(err){
-
-console.error(err);
-alert("ไม่สามารถเชื่อมต่อ server ❌");
-
-}
-
+  } catch(err){
+    console.log(err);
+    alert("เชื่อมต่อ server ไม่ได้");
+  }
 }
 
 </script>
